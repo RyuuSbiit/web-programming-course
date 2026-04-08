@@ -1,0 +1,14 @@
+services:
+  backend:
+    command: sh -c "npm run prisma:generate && npm run dev"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: ${DATABASE_URL:-file:/data/quiz-dev.db}
+    volumes:
+      - .:/app
+      - backend_node_modules:/app/node_modules
+      - quiz_data:/data
+
+volumes:
+  backend_node_modules:
+

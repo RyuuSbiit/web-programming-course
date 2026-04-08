@@ -1,0 +1,38 @@
+services:
+  backend:
+    image: ${APP_IMAGE_NAME:-quiz-backend}:${APP_IMAGE_TAG:-local}
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      PORT: ${PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL:-file:/data/quiz.db}
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - quiz_data:/data
+    depends_on:
+      db:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  db:
+    image: alpine:3.20
+    command: ["sh", "-c", "mkdir -p /data && tail -f /dev/null"]
+    volumes:
+      - quiz_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "test -d /data"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  quiz_data:
+

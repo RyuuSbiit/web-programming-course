@@ -1,0 +1,55 @@
+name: LR11 Quiz Backend CI
+
+on:
+  push:
+    paths:
+      - "lessons/lr11/quiz-backend/**"
+  pull_request:
+    paths:
+      - "lessons/lr11/quiz-backend/**"
+  workflow_dispatch:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lessons/lr11/quiz-backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: lessons/lr11/quiz-backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+  docker-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lessons/lr11/quiz-backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t quiz-backend:ci .
+
