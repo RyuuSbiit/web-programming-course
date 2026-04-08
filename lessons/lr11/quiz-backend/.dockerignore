@@ -6,6 +6,4 @@ dist
 coverage
 test-artifacts
 *.log
-tests
-vitest.config.ts
 
