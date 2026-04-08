@@ -7,7 +7,9 @@ RUN npm ci
 
 COPY prisma ./prisma
 COPY src ./src
+COPY tests ./tests
 COPY tsconfig.json ./
+COPY vitest.config.ts ./
 RUN npm run prisma:generate
 RUN npm run build
 
