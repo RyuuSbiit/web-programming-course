@@ -31,5 +31,5 @@ RUN mkdir -p /data
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node dist/src/index.js"]
 
