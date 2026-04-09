@@ -1,1346 +1,1891 @@
-# HTTP и API Fundamentals - Полное руководство
-
-Подробное руководство по работе с HTTP и API для лабораторной работы с GitHub OAuth.
-
----
+# Полное руководство: React паттерны, оптимизация и работа с API
 
 ## Содержание
-
-1. [HTTP протокол](#1-http-протокол)
-2. [Форматы передачи данных](#2-форматы-передачи-данных)
-3. [REST архитектура](#3-rest-архитектура)
-4. [Real-time коммуникация](#4-real-time-коммуникация)
-5. [Валидация данных](#5-валидация-данных)
-6. [Authentication & Authorization](#6-authentication--authorization)
-7. [Практическое руководство: GitHub OAuth](#7-практическое-руководство-github-oauth)
+1. [Введение](#введение)
+2. [Обзор React паттернов](#паттерны)
+   - [Custom Hooks](#custom-hooks)
+   - [Compound Components](#compound-components)
+   - [Render Props](#render-props)
+   - [Context API](#context-api)
+3. [Error Boundaries](#error-boundaries)
+4. [Оптимизация производительности](#оптимизация)
+   - [React.memo](#react-memo)
+   - [useMemo](#usememo)
+   - [useCallback](#usecallback)
+   - [Профилирование](#профилирование)
+5. [Работа с API через React Query](#react-query)
+6. [OpenAPI и кодогенерация](#openapi)
+7. [Best Practices](#best-practices)
 
 ---
 
-## 1. HTTP протокол
+## Введение {#введение}
 
-HTTP (HyperText Transfer Protocol) — это протокол передачи данных, на котором построен весь веб.
+### О чём эта лекция
 
-### 1.1. HTTP методы
+Эта лекция — **повторение и углубление** пройденного материала + **новые важные темы**:
 
-HTTP методы определяют, какое действие вы хотите выполнить с ресурсом.
+1. **Обзор паттернов** — быстрое повторение Custom Hooks, Compound Components, Render Props, Context из LR2
+2. **Error Boundaries** — профессиональная обработка ошибок в React
+3. **Оптимизация** — когда и как использовать memo, useMemo, useCallback
+4. **React Query** — современный стандарт работы с API
 
-#### GET - Чтение данных
+### Для кого эта лекция
 
-**Характеристики:**
-- Идемпотентен: можно вызывать множество раз — результат тот же
-- Безопасен: не изменяет данные на сервере
-- Кэшируется браузером автоматически
-- Данные передаются в URL (query параметры)
-
-**Примеры:**
-```typescript
-// Получить список пользователей
-const response = await fetch('/api/users?page=1&limit=10');
-const users = await response.json();
-
-// Получить конкретного пользователя
-const user = await fetch('/api/users/123');
-const userData = await user.json();
-```
-
-**Когда использовать:**
-- Получение данных
-- Поиск и фильтрация
-- Чтение ресурсов
-
-#### POST - Создание ресурса
-
-**Характеристики:**
-- НЕ идемпотентен: повторный вызов создаст новый ресурс
-- Данные передаются в теле запроса
-- Обычно возвращает 201 Created с заголовком Location
-
-**Примеры:**
-```typescript
-const response = await fetch('/api/users', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    name: 'John Doe',
-    email: 'john@example.com',
-    age: 30
-  })
-});
-
-if (response.status === 201) {
-  const newUser = await response.json();
-  const location = response.headers.get('Location');
-  console.log('Created:', newUser.id, 'at', location);
-}
-```
-
-**Когда использовать:**
-- Создание новых ресурсов
-- Отправка форм
-- Выполнение действий (отправка email, обработка платежа)
-
-**⚠️ Важно:** Будьте осторожны с повторными POST запросами!
-
-```typescript
-// ОПАСНО! Создаст 3 заказа
-for (let i = 0; i < 3; i++) {
-  await fetch('/api/orders', {
-    method: 'POST',
-    body: JSON.stringify({ product: 'iPhone', price: 999 })
-  });
-}
-
-// Решение: используйте idempotency key
-const idempotencyKey = crypto.randomUUID();
-await fetch('/api/orders', {
-  method: 'POST',
-  headers: {
-    'Idempotency-Key': idempotencyKey
-  },
-  body: JSON.stringify({ product: 'iPhone', price: 999 })
-});
-```
-
-#### PUT - Полная замена ресурса
-
-**Характеристики:**
-- Идемпотентен: можно вызывать множество раз
-- Заменяет ресурс ПОЛНОСТЬЮ
-- Все поля должны быть указаны
-
-**Примеры:**
-```typescript
-// Заменяем пользователя полностью
-await fetch('/api/users/123', {
-  method: 'PUT',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    name: 'John Doe',
-    email: 'john@example.com',
-    age: 30,
-    role: 'user'
-    // Если не указать какое-то поле, оно станет null!
-  })
-});
-```
-
-**Когда использовать:**
-- Полное обновление ресурса
-- Когда нужно заменить все данные
-
-#### PATCH - Частичное обновление
-
-**Характеристики:**
-- Может быть идемпотентен (зависит от реализации)
-- Обновляет только указанные поля
-- Остальные поля остаются без изменений
-
-**Примеры:**
-```typescript
-// Обновляем только возраст
-await fetch('/api/users/123', {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    age: 31  // Только этот field изменится
-  })
-});
-
-// name, email, role остались прежними
-```
-
-**Когда использовать:**
-- Частичное обновление ресурса
-- Изменение отдельных полей
-- Большинство случаев обновления
-
-**⚠️ PUT vs PATCH:**
-```typescript
-// PUT - забыли поле, оно обнулилось
-await fetch('/api/users/123', {
-  method: 'PUT',
-  body: JSON.stringify({ age: 31 })
-});
-// Result: { age: 31, name: null, email: null } ❌
-
-// PATCH - обновили только age
-await fetch('/api/users/123', {
-  method: 'PATCH',
-  body: JSON.stringify({ age: 31 })
-});
-// Result: { age: 31, name: 'John', email: 'john@example.com' } ✅
-```
-
-#### DELETE - Удаление ресурса
-
-**Характеристики:**
-- Идемпотентен: можно удалять несколько раз
-- Обычно возвращает 204 No Content (без тела)
-- Повторное удаление не ошибка
-
-**Примеры:**
-```typescript
-const response = await fetch('/api/users/123', {
-  method: 'DELETE'
-});
-
-if (response.status === 204) {
-  console.log('User deleted successfully');
-}
-
-// Повторное удаление - не ошибка
-await fetch('/api/users/123', { method: 'DELETE' }); // 204 или 404
-```
-
-**Когда использовать:**
-- Удаление ресурсов
-- Отмена операций
-
-### 1.2. HTTP коды ответов
-
-Коды ответов сообщают статус выполнения запроса.
-
-#### 2xx - Успех
-
-- **200 OK** - запрос успешен, есть тело ответа
-- **201 Created** - ресурс создан (POST)
-- **204 No Content** - успех, но нет тела ответа (DELETE)
-
-```typescript
-const response = await fetch('/api/users/123');
-
-if (response.status === 200) {
-  const user = await response.json();
-  console.log(user);
-} else if (response.status === 204) {
-  console.log('Success, but no content');
-}
-```
-
-#### 4xx - Ошибки клиента
-
-Вы сделали что-то не так:
-
-- **400 Bad Request** - некорректный синтаксис (malformed JSON)
-- **401 Unauthorized** - требуется аутентификация
-- **403 Forbidden** - нет прав доступа
-- **404 Not Found** - ресурс не найден
-- **422 Unprocessable Entity** - данные не прошли валидацию
-- **429 Too Many Requests** - rate limiting
-
-**Критическое различие: 401 vs 403**
-
-```typescript
-async function fetchProtectedResource() {
-  const response = await fetch('/api/admin/users');
-
-  if (response.status === 401) {
-    // "Кто ты?" - не аутентифицирован
-    // Токена нет или он истёк
-    window.location.href = '/login';
-    return;
-  }
-
-  if (response.status === 403) {
-    // "Знаю кто ты, но нельзя" - недостаточно прав
-    // Токен валиден, но у вас роль "user", а нужна "admin"
-    showError('Access denied. You need admin privileges.');
-    return;
-  }
-
-  return await response.json();
-}
-```
-
-#### 5xx - Ошибки сервера
-
-Сервер сломался:
-
-- **500 Internal Server Error** - общая ошибка сервера
-- **502 Bad Gateway** - проблемы с upstream сервером
-- **503 Service Unavailable** - сервис временно недоступен
-
-```typescript
-if (response.status >= 500) {
-  showError('Server error. Please try again later.');
-
-  // Можно реализовать retry логику
-  if (retries < 3) {
-    await delay(1000);
-    return fetchWithRetry(url, retries + 1);
-  }
-}
-```
-
-### 1.3. HTTP заголовки
-
-Заголовки — это метаданные запроса/ответа.
-
-#### Content-Type
-
-Указывает формат данных:
-
-```typescript
-// JSON
-await fetch('/api/users', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({ name: 'John' })
-});
-
-// Форма
-await fetch('/api/contact', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/x-www-form-urlencoded'
-  },
-  body: 'name=John&email=john@example.com'
-});
-
-// Файлы (НЕ указывайте Content-Type вручную!)
-const formData = new FormData();
-formData.append('file', file);
-await fetch('/api/upload', {
-  method: 'POST',
-  body: formData  // браузер сам поставит multipart/form-data
-});
-```
-
-#### Authorization
-
-Передача токенов аутентификации:
-
-```typescript
-// Bearer token (JWT)
-await fetch('/api/profile', {
-  headers: {
-    'Authorization': `Bearer ${token}`
-  }
-});
-
-// Basic auth (устаревший подход)
-const credentials = btoa(`${username}:${password}`);
-await fetch('/api/users', {
-  headers: {
-    'Authorization': `Basic ${credentials}`
-  }
-});
-```
-
-#### Cache-Control
-
-Управление кэшированием:
-
-```typescript
-// Не кэшировать
-await fetch('/api/profile', {
-  headers: {
-    'Cache-Control': 'no-cache'
-  }
-});
-
-// Сервер указывает правила кэширования
-// Response headers:
-Cache-Control: max-age=3600, private
-// → Кэшировать на 1 час, только в браузере
-
-Cache-Control: max-age=86400, public
-// → Кэшировать на 24 часа, можно в CDN
-
-Cache-Control: no-store
-// → Вообще не кэшировать (для конфиденциальных данных)
-```
-
-#### CORS (Cross-Origin Resource Sharing)
-
-Защита от кросс-доменных атак:
-
-```typescript
-// Сервер должен вернуть заголовки:
-Access-Control-Allow-Origin: https://yourapp.com
-Access-Control-Allow-Methods: GET, POST, PUT, DELETE
-Access-Control-Allow-Headers: Content-Type, Authorization
-Access-Control-Allow-Credentials: true
-
-// Preflight запрос (OPTIONS)
-// Браузер автоматически отправляет OPTIONS перед POST/PUT/DELETE
-// для проверки разрешений
-```
+✅ Вы прошли LR2 (React + TypeScript)
+✅ Знаете основные хуки (useState, useEffect, useContext)
+✅ Понимаете TypeScript базово
 
 ---
 
-## 2. Форматы передачи данных
+## Обзор React паттернов {#паттерны}
 
-### 2.1. JSON
+> 📝 **Примечание**: Эти паттерны подробно разбирались в LR2. Здесь — краткое повторение.
 
-JSON — стандарт для современных API.
+### Таблица сравнения паттернов
 
-**Примеры:**
+| Паттерн | Что решает | Когда использовать | Пример |
+|---------|------------|-------------------|--------|
+| **Custom Hooks** | Переиспользование stateful логики | Любая логика с состоянием | `useToggle`, `useDebounce` |
+| **Compound Components** | Гибкие составные UI | Сложные компоненты с частями | `<Tabs>`, `<Accordion>` |
+| **Render Props** | Разделение логики и UI | Разный UI с одной логикой | DataFetcher, MouseTracker |
+| **Context API** | Избегание prop drilling | Глобальное состояние | Theme, Auth, Language |
+
+---
+
+### Custom Hooks {#custom-hooks}
+
+**Быстрое напоминание**: Custom Hooks — это функции, начинающиеся с `use`, которые используют встроенные хуки React.
+
+#### Пример: useToggle
 
 ```typescript
-// Простой объект
-{
-  "id": 123,
-  "name": "John Doe",
-  "email": "john@example.com"
+import { useState, useCallback } from 'react';
+
+function useToggle(initialValue: boolean = false) {
+  const [value, setValue] = useState(initialValue);
+
+  const toggle = useCallback(() => {
+    setValue(v => !v);
+  }, []);
+
+  const setTrue = useCallback(() => setValue(true), []);
+  const setFalse = useCallback(() => setValue(false), []);
+
+  return { value, toggle, setTrue, setFalse };
 }
 
-// Вложенные объекты
-{
-  "user": {
-    "id": 123,
-    "profile": {
-      "name": "John",
-      "avatar": "https://..."
-    },
-    "settings": {
-      "theme": "dark",
-      "notifications": true
-    }
-  }
-}
+// Использование
+function Modal() {
+  const { value: isOpen, toggle, setTrue } = useToggle(false);
 
-// Массивы
-{
-  "users": [
-    { "id": 1, "name": "John" },
-    { "id": 2, "name": "Jane" }
-  ]
+  return (
+    <>
+      <button onClick={setTrue}>Open Modal</button>
+      {isOpen && (
+        <div className="modal">
+          <h2>Modal Title</h2>
+          <button onClick={toggle}>Close</button>
+        </div>
+      )}
+    </>
+  );
 }
 ```
 
-**TypeScript типизация:**
+**Когда создавать Custom Hook:**
+- Логика используется в нескольких компонентах
+- Есть состояние + эффекты + функции
+- Хотите изолировать сложную логику
+
+---
+
+### Compound Components {#compound-components}
+
+**Быстрое напоминание**: Компоненты, которые работают вместе через общий Context.
+
+#### Пример: Card
 
 ```typescript
+import { createContext, useContext, ReactNode } from 'react';
+
+// Простой вариант без Context (для статичных компонентов)
+interface CardProps {
+  children: ReactNode;
+}
+
+function Card({ children }: CardProps) {
+  return <div className="card">{children}</div>;
+}
+
+const CardHeader = ({ children }: { children: ReactNode }) => (
+  <div className="card-header">{children}</div>
+);
+
+const CardBody = ({ children }: { children: ReactNode }) => (
+  <div className="card-body">{children}</div>
+);
+
+const CardFooter = ({ children }: { children: ReactNode }) => (
+  <div className="card-footer">{children}</div>
+);
+
+// Attach compound components
+Card.Header = CardHeader;
+Card.Body = CardBody;
+Card.Footer = CardFooter;
+
+// Использование
+function UserProfile() {
+  return (
+    <Card>
+      <Card.Header>
+        <h2>John Doe</h2>
+      </Card.Header>
+      <Card.Body>
+        <p>Frontend Developer</p>
+        <p>john@example.com</p>
+      </Card.Body>
+      <Card.Footer>
+        <button>Edit Profile</button>
+      </Card.Footer>
+    </Card>
+  );
+}
+```
+
+**Когда использовать:**
+- Компонент состоит из нескольких логических частей
+- Нужна гибкость в композиции
+- Хотите красивый API
+
+---
+
+### Render Props {#render-props}
+
+**Быстрое напоминание**: Паттерн передачи функции через props для рендера.
+
+#### Пример: DataFetcher
+
+```typescript
+import { useState, useEffect, ReactNode } from 'react';
+
+interface DataFetcherProps<T> {
+  url: string;
+  children: (data: T | null, loading: boolean, error: string | null) => ReactNode;
+}
+
+function DataFetcher<T>({ url, children }: DataFetcherProps<T>) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        setData(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, [url]);
+
+  return <>{children(data, loading, error)}</>;
+}
+
+// Использование
 interface User {
   id: number;
   name: string;
   email: string;
-  roles: string[];
-  settings: {
-    theme: 'light' | 'dark';
-    notifications: boolean;
-  };
 }
 
-// Использование
-const response = await fetch('/api/users/123');
-const user: User = await response.json();
+function UserProfile({ userId }: { userId: number }) {
+  return (
+    <DataFetcher<User> url={`/api/users/${userId}`}>
+      {(user, loading, error) => {
+        if (loading) return <div>Loading...</div>;
+        if (error) return <div>Error: {error}</div>;
+        if (!user) return <div>No user found</div>;
 
-console.log(user.settings.theme); // TypeScript проверит типы
+        return (
+          <div>
+            <h2>{user.name}</h2>
+            <p>{user.email}</p>
+          </div>
+        );
+      }}
+    </DataFetcher>
+  );
+}
 ```
 
-### 2.2. Query параметры
+**Render Props vs Custom Hooks:**
+- Render Props: разный UI с одной логикой
+- Custom Hooks: переиспользование логики (современный подход)
 
-Для фильтрации, сортировки, пагинации.
+---
 
-**Примеры:**
+### Context API {#context-api}
 
-```typescript
-// Пагинация
-GET /api/users?page=1&limit=10
+**Быстрое напоминание**: Способ передать данные через дерево компонентов без prop drilling.
 
-// Фильтрация
-GET /api/users?role=admin&status=active
-
-// Сортировка
-GET /api/posts?sort=createdAt&order=desc
-
-// Поиск
-GET /api/products?q=laptop&category=electronics&minPrice=500
-
-// Множественные значения
-GET /api/products?tags=typescript&tags=react&tags=nodejs
-```
-
-**TypeScript helper:**
+#### Пример: Theme Context
 
 ```typescript
-function buildQueryString(params: Record<string, any>): string {
-  const query = new URLSearchParams();
+import { createContext, useContext, useState, ReactNode } from 'react';
 
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null) {
-      return; // Пропускаем
-    }
-
-    if (Array.isArray(value)) {
-      // Массив → множественные значения
-      value.forEach(v => query.append(key, String(v)));
-    } else {
-      query.set(key, String(value));
-    }
-  });
-
-  return query.toString();
+interface ThemeContextType {
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
 }
 
-// Использование
-const params = {
-  page: 1,
-  limit: 10,
-  status: 'active',
-  tags: ['typescript', 'react'],
-  minPrice: undefined  // Пропустится
-};
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const queryString = buildQueryString(params);
-// → page=1&limit=10&status=active&tags=typescript&tags=react
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-const response = await fetch(`/api/products?${queryString}`);
-```
-
-### 2.3. Path параметры
-
-Идентификация ресурсов в URL.
-
-**Примеры:**
-
-```typescript
-// Один ресурс
-GET /api/users/123
-
-// Вложенные ресурсы
-GET /api/users/123/posts
-GET /api/users/123/posts/456
-GET /api/users/123/posts/456/comments
-
-// Организационная иерархия
-GET /api/organizations/acme/teams/engineering/members
-```
-
-**TypeScript типизация путей:**
-
-```typescript
-type UserId = string;
-type PostId = string;
-
-type ApiPaths = {
-  getUser: (userId: UserId) => `/api/users/${string}`;
-  getUserPosts: (userId: UserId) => `/api/users/${string}/posts`;
-  getPost: (userId: UserId, postId: PostId) => `/api/users/${string}/posts/${string}`;
-};
-
-const api: ApiPaths = {
-  getUser: (id) => `/api/users/${id}`,
-  getUserPosts: (id) => `/api/users/${id}/posts`,
-  getPost: (uid, pid) => `/api/users/${uid}/posts/${pid}`
-};
-
-// Использование
-const userPath = api.getUser('123');  // TypeScript проверит тип
-const response = await fetch(userPath);
-```
-
-### 2.4. Multipart/form-data
-
-Для загрузки файлов.
-
-**Примеры:**
-
-```typescript
-// Загрузка одного файла
-async function uploadAvatar(userId: string, file: File) {
-  const formData = new FormData();
-  formData.append('avatar', file);
-  formData.append('userId', userId);
-
-  const response = await fetch('/api/users/avatar', {
-    method: 'POST',
-    body: formData  // НЕ указывайте Content-Type!
-  });
-
-  return await response.json();
-}
-
-// Множественные файлы
-async function uploadDocuments(files: File[]) {
-  const formData = new FormData();
-
-  files.forEach((file, index) => {
-    formData.append(`document_${index}`, file);
-  });
-
-  // Можно добавить метаданные
-  formData.append('metadata', JSON.stringify({
-    folder: 'documents',
-    tags: ['important']
-  }));
-
-  return await fetch('/api/upload/documents', {
-    method: 'POST',
-    body: formData
-  });
-}
-
-// React пример с input
-function FileUploadComponent() {
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files) return;
-
-    const formData = new FormData();
-    Array.from(files).forEach(file => {
-      formData.append('files', file);
-    });
-
-    await fetch('/api/upload', {
-      method: 'POST',
-      body: formData
-    });
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  return <input type="file" multiple onChange={handleUpload} />;
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
-```
 
----
-
-## 3. REST архитектура
-
-REST (Representational State Transfer) — архитектурный стиль для проектирования API.
-
-### 3.1. Принципы REST
-
-1. **Stateless** - каждый запрос содержит всю необходимую информацию
-2. **Resource-based** - ресурсы идентифицируются URL
-3. **HTTP методы** - используем семантику HTTP
-4. **Стандартные форматы** - JSON, XML
-
-### 3.2. CRUD → HTTP маппинг
-
-Стандартный набор операций для любого ресурса:
-
-| CRUD | HTTP | Endpoint | Request Body | Response | Status |
-|------|------|----------|--------------|----------|--------|
-| Create | POST | `/users` | `{ name, email }` | Created user | 201 |
-| Read | GET | `/users` | - | Array of users | 200 |
-| Read | GET | `/users/123` | - | Single user | 200 |
-| Update | PUT | `/users/123` | `{ name, email, age }` | Updated user | 200 |
-| Update | PATCH | `/users/123` | `{ age }` | Updated user | 200 |
-| Delete | DELETE | `/users/123` | - | - | 204 |
-
-**Пример TypeScript класса:**
-
-```typescript
-class UsersAPI {
-  private baseUrl = '/api/users';
-
-  // CREATE
-  async create(data: Omit<User, 'id'>): Promise<User> {
-    const response = await fetch(this.baseUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-
-    if (response.status !== 201) {
-      throw new Error('Failed to create user');
-    }
-
-    return await response.json();
+// Custom hook для использования контекста
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within ThemeProvider');
   }
-
-  // READ (list)
-  async list(params?: ListParams): Promise<User[]> {
-    const query = buildQueryString(params || {});
-    const response = await fetch(`${this.baseUrl}?${query}`);
-
-    if (response.status !== 200) {
-      throw new Error('Failed to fetch users');
-    }
-
-    return await response.json();
-  }
-
-  // READ (single)
-  async get(id: string): Promise<User> {
-    const response = await fetch(`${this.baseUrl}/${id}`);
-
-    if (response.status === 404) {
-      throw new Error('User not found');
-    }
-
-    if (response.status !== 200) {
-      throw new Error('Failed to fetch user');
-    }
-
-    return await response.json();
-  }
-
-  // UPDATE
-  async update(id: string, data: Partial<User>): Promise<User> {
-    const response = await fetch(`${this.baseUrl}/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-
-    if (response.status !== 200) {
-      throw new Error('Failed to update user');
-    }
-
-    return await response.json();
-  }
-
-  // DELETE
-  async delete(id: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/${id}`, {
-      method: 'DELETE'
-    });
-
-    if (response.status !== 204) {
-      throw new Error('Failed to delete user');
-    }
-  }
+  return context;
 }
 
 // Использование
-const usersAPI = new UsersAPI();
+function Header() {
+  const { theme, toggleTheme } = useTheme();
 
-const newUser = await usersAPI.create({ name: 'John', email: 'john@example.com' });
-const users = await usersAPI.list({ page: 1, limit: 10 });
-const user = await usersAPI.get('123');
-await usersAPI.update('123', { age: 30 });
-await usersAPI.delete('123');
-```
-
-### 3.3. Best Practices именования
-
-✅ **Хорошо:**
-- Множественное число: `/users`, `/posts`
-- Lowercase: `/api/users`
-- Дефисы: `/user-profiles`
-- Без глаголов: `GET /users` (не `/getUsers`)
-- Вложенность: `/users/123/posts`
-
-❌ **Плохо:**
-- Единственное число: `/user`
-- camelCase: `/userProfiles`
-- snake_case: `/user_profiles`
-- Глаголы в URL: `/getUsers`, `/createUser`
-- Некорректная вложенность: `/getUserPosts?userId=123`
-
----
-
-## 4. Real-time коммуникация
-
-Когда нужны обновления в реальном времени.
-
-### 4.1. WebSockets
-
-Двусторонняя связь client ↔ server.
-
-**Примеры:**
-
-```typescript
-const socket = new WebSocket('ws://localhost:3000');
-
-socket.onopen = () => {
-  console.log('Connected');
-
-  // Отправка сообщения на сервер
-  socket.send(JSON.stringify({
-    type: 'subscribe',
-    channel: 'notifications'
-  }));
-};
-
-socket.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log('Received:', data);
-
-  // Обработка разных типов сообщений
-  switch (data.type) {
-    case 'notification':
-      showNotification(data.payload);
-      break;
-    case 'message':
-      displayMessage(data.payload);
-      break;
-  }
-};
-
-socket.onerror = (error) => {
-  console.error('WebSocket error:', error);
-};
-
-socket.onclose = () => {
-  console.log('Disconnected');
-  // Переподключение через 5 секунд
-  setTimeout(() => {
-    connectWebSocket();
-  }, 5000);
-};
-```
-
-**Use cases:**
-- Чаты
-- Онлайн игры
-- Collaborative editing (Google Docs)
-- Real-time dashboards
-
-### 4.2. Server-Sent Events (SSE)
-
-Односторонняя связь server → client.
-
-**Примеры:**
-
-```typescript
-const eventSource = new EventSource('/api/events');
-
-eventSource.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log('Event:', data);
-};
-
-// Слушать конкретные типы событий
-eventSource.addEventListener('notification', (event) => {
-  const notification = JSON.parse(event.data);
-  showNotification(notification);
-});
-
-eventSource.addEventListener('update', (event) => {
-  const update = JSON.parse(event.data);
-  updateUI(update);
-});
-
-eventSource.onerror = (error) => {
-  console.error('SSE error:', error);
-  eventSource.close();
-};
-```
-
-**Use cases:**
-- Push-уведомления
-- Live feeds (новости)
-- Progress updates
-- Биржевые котировки
-
----
-
-## 5. Валидация данных
-
-### 5.1. Клиент vs Сервер
-
-**ПРАВИЛО: ВСЕГДА делать обе валидации!**
-
-**Клиентская (UX):**
-```typescript
-// Мгновенный feedback
-function validateEmail(email: string): string | null {
-  if (!email) {
-    return 'Email is required';
-  }
-
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return 'Invalid email format';
-  }
-
-  return null;
+  return (
+    <header className={theme}>
+      <h1>My App</h1>
+      <button onClick={toggleTheme}>
+        Switch to {theme === 'light' ? 'dark' : 'light'}
+      </button>
+    </header>
+  );
 }
 
-// В React форме
-const [emailError, setEmailError] = useState<string | null>(null);
-
-const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const email = e.target.value;
-  setEmailError(validateEmail(email));
-};
-
-<input type="email" onChange={handleEmailChange} />
-{emailError && <span className="error">{emailError}</span>}
+function App() {
+  return (
+    <ThemeProvider>
+      <Header />
+    </ThemeProvider>
+  );
+}
 ```
 
-**Серверная (Безопасность):**
+**Когда использовать Context:**
+- Данные нужны в многих компонентах на разных уровнях
+- Хотите избежать prop drilling
+- Глобальное состояние (theme, auth, language)
+
+**⚠️ Когда НЕ использовать:**
+- Для передачи через 1-2 уровня (просто используйте props)
+- Для частообновляемых данных (будет много ре-рендеров)
+
+---
+
+## Error Boundaries {#error-boundaries}
+
+### Проблема
+
+В React ошибка в одном компоненте **крашит всё приложение**:
+
 ```typescript
-// На сервере повторяем ВСЕ проверки + дополнительные
-async function validateUserServer(data: CreateUserRequest): Promise<ValidationError[]> {
-  const errors: ValidationError[] = [];
+function BuggyComponent() {
+  throw new Error('Oops! Something went wrong');
+  return <div>This will never render</div>;
+}
 
-  // Структурная валидация
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-    errors.push({ field: 'email', message: 'Invalid email format' });
+function App() {
+  return (
+    <div>
+      <h1>My App</h1>
+      <BuggyComponent /> {/* Весь App упадёт! */}
+    </div>
+  );
+}
+```
+
+**Результат**: Белый экран смерти (WSOD) 💀
+
+### Решение: Error Boundaries
+
+**Error Boundary** — это React-компонент, который ловит ошибки в дочерних компонентах и показывает fallback UI.
+
+### Создание Error Boundary
+
+```typescript
+import React, { Component, ReactNode, ErrorInfo } from 'react';
+
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+    };
   }
 
-  if (data.password.length < 8) {
-    errors.push({ field: 'password', message: 'Password must be at least 8 characters' });
+  // Вызывается при ошибке - обновляет state
+  static getDerivedStateFromError(error: Error): State {
+    return {
+      hasError: true,
+      error,
+    };
   }
 
-  // Бизнес-правила
-  if (data.age < 18) {
-    errors.push({ field: 'age', message: 'Must be at least 18' });
+  // Вызывается после отлова ошибки - для логирования
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+
+    // Здесь можно отправить ошибку в сервис мониторинга
+    // logErrorToService(error, errorInfo);
   }
 
-  // Референциальная валидация (ТОЛЬКО на сервере!)
-  const emailExists = await db.users.exists({ email: data.email });
-  if (emailExists) {
-    errors.push({ field: 'email', message: 'Email already taken' });
-  }
+  resetError = () => {
+    this.setState({
+      hasError: false,
+      error: null,
+    });
+  };
 
-  if (data.referrerId) {
-    const referrerExists = await db.users.exists({ id: data.referrerId });
-    if (!referrerExists) {
-      errors.push({ field: 'referrerId', message: 'Referrer not found' });
+  render() {
+    if (this.state.hasError) {
+      // Fallback UI
+      return (
+        this.props.fallback || (
+          <div style={{ padding: '20px', border: '1px solid red' }}>
+            <h2>⚠️ Something went wrong</h2>
+            <details style={{ whiteSpace: 'pre-wrap' }}>
+              {this.state.error?.toString()}
+            </details>
+            <button onClick={this.resetError}>Try again</button>
+          </div>
+        )
+      );
     }
-  }
 
-  return errors;
+    return this.props.children;
+  }
 }
 
-// В Express endpoint
-app.post('/api/users', async (req, res) => {
-  const errors = await validateUserServer(req.body);
+export default ErrorBoundary;
+```
 
-  if (errors.length > 0) {
-    return res.status(422).json({
-      type: 'validation-error',
-      title: 'Validation Failed',
-      status: 422,
-      errors
+### Использование
+
+```typescript
+function App() {
+  return (
+    <div>
+      <h1>My App</h1>
+
+      {/* Весь App защищён */}
+      <ErrorBoundary>
+        <Header />
+        <MainContent />
+        <Footer />
+      </ErrorBoundary>
+
+      {/* Или защитить только часть */}
+      <div>
+        <Sidebar />
+        <ErrorBoundary fallback={<div>Widget failed to load</div>}>
+          <ComplexWidget />
+        </ErrorBoundary>
+      </div>
+    </div>
+  );
+}
+```
+
+### Что НЕ ловит Error Boundary
+
+❌ **Не ловит:**
+- Ошибки в обработчиках событий (onClick, onChange)
+- Асинхронный код (setTimeout, fetch)
+- Ошибки в самом Error Boundary
+- SSR (серверный рендеринг)
+
+✅ **Ловит:**
+- Ошибки при рендере
+- Ошибки в методах жизненного цикла
+- Ошибки в конструкторах
+
+### Обработка ошибок в обработчиках событий
+
+```typescript
+function MyComponent() {
+  const handleClick = () => {
+    try {
+      // Опасный код
+      dangerousOperation();
+    } catch (error) {
+      console.error('Error in event handler:', error);
+      // Показать уведомление пользователю
+    }
+  };
+
+  return <button onClick={handleClick}>Click me</button>;
+}
+```
+
+### Множественные Error Boundaries
+
+```typescript
+function App() {
+  return (
+    <ErrorBoundary fallback={<div>App failed</div>}>
+      <Header />
+
+      <main>
+        <ErrorBoundary fallback={<div>Sidebar failed</div>}>
+          <Sidebar />
+        </ErrorBoundary>
+
+        <ErrorBoundary fallback={<div>Content failed</div>}>
+          <Content />
+        </ErrorBoundary>
+      </main>
+
+      <Footer />
+    </ErrorBoundary>
+  );
+}
+```
+
+**Преимущества:**
+- Более детальная обработка
+- Часть UI может работать при ошибке в другой части
+- Лучший UX
+
+### Интеграция с логированием
+
+```typescript
+class ErrorBoundary extends Component<Props, State> {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Отправка в Sentry
+    // Sentry.captureException(error, { extra: errorInfo });
+
+    // Или свой backend
+    fetch('/api/log-error', {
+      method: 'POST',
+      body: JSON.stringify({
+        error: error.toString(),
+        componentStack: errorInfo.componentStack,
+        timestamp: new Date().toISOString(),
+      }),
     });
   }
-
-  // Создаём пользователя
-  const user = await db.users.create(req.body);
-  res.status(201).json(user);
-});
+}
 ```
 
-### 5.2. HTTP 422 и структура ошибок
+### Best Practices
 
-**RFC 7807 (Problem Details):**
+1. **Размещайте Error Boundaries стратегически**
+   - На уровне layout (для всего приложения)
+   - На уровне роутов (для каждой страницы)
+   - Вокруг сложных виджетов
+
+2. **Хороший fallback UI**
+   ```typescript
+   <ErrorBoundary fallback={
+     <div>
+       <h2>Oops! Something went wrong</h2>
+       <p>We're working on fixing this issue.</p>
+       <button onClick={() => window.location.reload()}>
+         Reload page
+       </button>
+     </div>
+   } />
+   ```
+
+3. **Логирование в production**
+   - Всегда логируйте ошибки
+   - Используйте сервисы мониторинга (Sentry, LogRocket)
+
+4. **Не используйте для flow control**
+   ```typescript
+   // ❌ Плохо
+   <ErrorBoundary fallback={<LoginPage />}>
+     <PrivateRoute />
+   </ErrorBoundary>
+
+   // ✅ Хорошо
+   {isAuthenticated ? <PrivateRoute /> : <LoginPage />}
+   ```
+
+---
+
+## Оптимизация производительности {#оптимизация}
+
+### Проблемы производительности
+
+**Основная проблема React**: Лишние ре-рендеры
 
 ```typescript
-interface ValidationError {
-  field: string;
-  message: string;
-  code?: string;
+function Parent() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <div>
+      <button onClick={() => setCount(c => c + 1)}>
+        Count: {count}
+      </button>
+      <ExpensiveChild />  {/* Ре-рендерится при каждом клике! */}
+    </div>
+  );
+}
+```
+
+### Как найти проблемы
+
+**React DevTools Profiler:**
+
+1. Откройте React DevTools
+2. Перейдите во вкладку "Profiler"
+3. Нажмите "Start profiling"
+4. Взаимодействуйте с приложением
+5. Нажмите "Stop profiling"
+6. Смотрите flame chart
+
+**Что искать:**
+- Компоненты, которые рендерятся часто
+- Компоненты с долгим временем рендера
+- Компоненты, которые рендерятся без изменений props
+
+---
+
+### React.memo {#react-memo}
+
+**React.memo** — это HOC, который мемоизирует компонент и пропускает ре-рендер, если props не изменились.
+
+#### Базовое использование
+
+```typescript
+import { memo } from 'react';
+
+interface Props {
+  name: string;
+  age: number;
 }
 
-interface ApiProblemDetails {
-  type: string;
-  title: string;
-  status: number;
-  detail?: string;
-  errors?: ValidationError[];
+// Без memo - ре-рендерится всегда
+function UserCard({ name, age }: Props) {
+  console.log('UserCard rendered');
+  return (
+    <div>
+      <h2>{name}</h2>
+      <p>Age: {age}</p>
+    </div>
+  );
 }
 
-// Обработка на клиенте
-async function handleSubmit(data: FormData) {
+// С memo - ре-рендерится только при изменении props
+const UserCardMemo = memo(UserCard);
+
+export default UserCardMemo;
+```
+
+#### Кастомное сравнение
+
+```typescript
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+  description: string;
+}
+
+const ProductCard = memo(
+  ({ product }: { product: Product }) => {
+    console.log('ProductCard rendered');
+    return (
+      <div>
+        <h3>{product.name}</h3>
+        <p>${product.price}</p>
+      </div>
+    );
+  },
+  // Кастомная функция сравнения
+  (prevProps, nextProps) => {
+    // Возвращаем true, если пропсы равны (НЕ нужен ре-рендер)
+    return (
+      prevProps.product.id === nextProps.product.id &&
+      prevProps.product.name === nextProps.product.name &&
+      prevProps.product.price === nextProps.product.price
+    );
+  }
+);
+```
+
+#### Когда использовать React.memo
+
+✅ **Используйте если:**
+- Компонент рендерится часто с одинаковыми props
+- Компонент дорогой в рендере (сложные вычисления, большой DOM)
+- Компонент в списке
+
+❌ **Не используйте если:**
+- Props меняются при каждом рендере
+- Компонент простой и быстрый
+- Нет проблем с производительностью
+
+---
+
+### useMemo {#usememo}
+
+**useMemo** — хук для мемоизации **вычислений**.
+
+#### Базовое использование
+
+```typescript
+import { useMemo, useState } from 'react';
+
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+  category: string;
+}
+
+function ProductList({ products }: { products: Product[] }) {
+  const [filter, setFilter] = useState('');
+
+  // ❌ Без useMemo - фильтрация при каждом рендере
+  const filtered = products.filter(p =>
+    p.name.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  // ✅ С useMemo - фильтрация только при изменении products или filter
+  const filteredMemo = useMemo(() => {
+    console.log('Filtering products...');
+    return products.filter(p =>
+      p.name.toLowerCase().includes(filter.toLowerCase())
+    );
+  }, [products, filter]); // dependency array
+
+  return (
+    <div>
+      <input
+        value={filter}
+        onChange={e => setFilter(e.target.value)}
+        placeholder="Search..."
+      />
+      <div>
+        {filteredMemo.map(product => (
+          <div key={product.id}>{product.name}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+#### Дорогие вычисления
+
+```typescript
+function ExpensiveCalculation({ numbers }: { numbers: number[] }) {
+  // Дорогая операция - мемоизируем
+  const sum = useMemo(() => {
+    console.log('Calculating sum...');
+    return numbers.reduce((acc, n) => acc + n, 0);
+  }, [numbers]);
+
+  const average = useMemo(() => {
+    console.log('Calculating average...');
+    return sum / numbers.length;
+  }, [sum, numbers.length]);
+
+  return (
+    <div>
+      <p>Sum: {sum}</p>
+      <p>Average: {average}</p>
+    </div>
+  );
+}
+```
+
+#### Когда использовать useMemo
+
+✅ **Используйте если:**
+- Вычисления действительно дорогие (циклы, фильтрация больших массивов)
+- Результат передаётся в компонент с React.memo
+- Создание объектов/массивов для dependency arrays
+
+❌ **Не используйте если:**
+- Простые вычисления (сложение, умножение)
+- Вычисления и так быстрые
+- "На всякий случай"
+
+**Правило:** Измерьте сначала, оптимизируйте потом!
+
+---
+
+### useCallback {#usecallback}
+
+**useCallback** — хук для мемоизации **функций**.
+
+#### Базовое использование
+
+```typescript
+import { useState, useCallback, memo } from 'react';
+
+interface ItemProps {
+  item: { id: number; name: string };
+  onSelect: (id: number) => void;
+}
+
+// Мемоизированный компонент
+const Item = memo(({ item, onSelect }: ItemProps) => {
+  console.log('Item rendered:', item.name);
+  return (
+    <div onClick={() => onSelect(item.id)}>
+      {item.name}
+    </div>
+  );
+});
+
+function ItemList() {
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const items = [
+    { id: 1, name: 'Item 1' },
+    { id: 2, name: 'Item 2' },
+    { id: 3, name: 'Item 3' },
+  ];
+
+  // ❌ Без useCallback - новая функция при каждом рендере
+  // Item будет ре-рендериться всегда, даже с memo!
+  const handleSelect = (id: number) => {
+    setSelectedId(id);
+  };
+
+  // ✅ С useCallback - та же функция, если deps не изменились
+  const handleSelectMemo = useCallback((id: number) => {
+    setSelectedId(id);
+  }, []); // нет зависимостей
+
+  return (
+    <div>
+      {items.map(item => (
+        <Item
+          key={item.id}
+          item={item}
+          onSelect={handleSelectMemo}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+#### useCallback с зависимостями
+
+```typescript
+function TodoList() {
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [filter, setFilter] = useState('all');
+
+  // Функция зависит от filter
+  const handleToggle = useCallback((id: number) => {
+    setTodos(prev => prev.map(todo =>
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
+    ));
+
+    console.log('Current filter:', filter); // используем filter
+  }, [filter]); // filter в dependencies
+
+  return (
+    <div>
+      {todos.map(todo => (
+        <TodoItem key={todo.id} todo={todo} onToggle={handleToggle} />
+      ))}
+    </div>
+  );
+}
+```
+
+#### useCallback vs useMemo
+
+```typescript
+// useCallback - мемоизирует функцию
+const memoizedCallback = useCallback(() => {
+  doSomething(a, b);
+}, [a, b]);
+
+// useMemo - мемоизирует результат
+const memoizedValue = useMemo(() => {
+  return computeExpensiveValue(a, b);
+}, [a, b]);
+
+// useCallback - это синтаксический сахар для useMemo
+const memoizedCallback2 = useMemo(() => {
+  return () => doSomething(a, b);
+}, [a, b]);
+```
+
+#### Когда использовать useCallback
+
+✅ **Используйте если:**
+- Функция передаётся в мемоизированный компонент
+- Функция в dependency array другого хука
+- Оптимизируете производительность списков
+
+❌ **Не используйте если:**
+- Функция используется только внутри компонента
+- Компонент и так быстрый
+- Нет React.memo на дочерних компонентах
+
+---
+
+### Профилирование {#профилирование}
+
+#### React DevTools Profiler
+
+**Шаги:**
+
+1. Установите [React DevTools](https://react.dev/learn/react-developer-tools)
+2. Откройте вкладку "Profiler"
+3. Нажмите "Start profiling" (🔴)
+4. Взаимодействуйте с приложением
+5. Нажмите "Stop profiling" (⏹️)
+6. Анализируйте результаты
+
+**Что смотреть:**
+
+- **Flame Chart**: какие компоненты рендерятся и сколько времени тратят
+- **Ranked Chart**: компоненты по времени рендера
+- **Component renders**: сколько раз компонент рендерился
+
+#### Профилирование в коде
+
+```typescript
+import { Profiler, ProfilerOnRenderCallback } from 'react';
+
+const onRenderCallback: ProfilerOnRenderCallback = (
+  id, // id Profiler
+  phase, // "mount" или "update"
+  actualDuration, // время рендера
+  baseDuration, // оценочное время без мемоизации
+  startTime, // когда React начал рендер
+  commitTime, // когда React закоммитил
+  interactions // Set of interactions
+) => {
+  console.log(`${id} ${phase} took ${actualDuration}ms`);
+};
+
+function App() {
+  return (
+    <Profiler id="App" onRender={onRenderCallback}>
+      <Header />
+      <Main />
+      <Footer />
+    </Profiler>
+  );
+}
+```
+
+#### Chrome Performance
+
+1. Откройте DevTools → Performance
+2. Нажмите "Record" (●)
+3. Взаимодействуйте с приложением
+4. Остановите запись
+5. Анализируйте User Timing
+
+**Смотрите на:**
+- Долгие задачи (Long Tasks)
+- Layout/Paint операции
+- JavaScript execution time
+
+### Чек-лист оптимизации
+
+1. ✅ **Измерьте сначала** — используйте Profiler
+2. ✅ **Оптимизируйте узкие места** — не оптимизируйте всё подряд
+3. ✅ **React.memo** для компонентов с стабильными props
+4. ✅ **useMemo** для дорогих вычислений
+5. ✅ **useCallback** для функций в мемоизированных компонентах
+6. ✅ **Профилируйте после** — убедитесь, что стало лучше
+
+**❗ Помните:** Преждевременная оптимизация — корень всех зол!
+
+---
+
+## Работа с API через React Query {#react-query}
+
+### Проблемы с обычным fetch
+
+```typescript
+function UserList() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/users')
+      .then(res => res.json())
+      .then(data => {
+        setUsers(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  // Много boilerplate, нет кэширования, нет ре-фетча...
+}
+```
+
+**Проблемы:**
+- ❌ Много boilerplate кода
+- ❌ Нет кэширования
+- ❌ Нет автоматического обновления
+- ❌ Дублирование логики
+- ❌ Сложная синхронизация
+
+### Введение в React Query
+
+**React Query (TanStack Query)** — мощная библиотека для работы с серверным состоянием.
+
+**Преимущества:**
+- ✅ Автоматическое кэширование
+- ✅ Фоновое обновление
+- ✅ Дедупликация запросов
+- ✅ Optimistic updates
+- ✅ Pagination, infinite scroll
+- ✅ DevTools из коробки
+
+### Установка
+
+```bash
+npm install @tanstack/react-query
+# или
+yarn add @tanstack/react-query
+# или
+pnpm add @tanstack/react-query
+```
+
+### Setup
+
+```typescript
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
+// Создаём клиент
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 минут
+      cacheTime: 1000 * 60 * 10, // 10 минут
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <YourApp />
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  );
+}
+```
+
+### useQuery - получение данных
+
+```typescript
+import { useQuery } from '@tanstack/react-query';
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+// Функция для запроса
+const fetchUsers = async (): Promise<User[]> => {
+  const response = await fetch('/api/users');
+  if (!response.ok) {
+    throw new Error('Failed to fetch users');
+  }
+  return response.json();
+};
+
+function UserList() {
+  const {
+    data: users,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['users'], // уникальный ключ для кэша
+    queryFn: fetchUsers,
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+  if (isError) return <div>Error: {error.message}</div>;
+
+  return (
+    <div>
+      <button onClick={() => refetch()}>Refresh</button>
+      <ul>
+        {users?.map(user => (
+          <li key={user.id}>
+            {user.name} - {user.email}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+### queryKey - ключи кэша
+
+```typescript
+// Простой ключ
+useQuery({ queryKey: ['users'], queryFn: fetchUsers });
+
+// С параметрами
+useQuery({
+  queryKey: ['user', userId],
+  queryFn: () => fetchUser(userId),
+});
+
+// С фильтрами
+useQuery({
+  queryKey: ['users', { role: 'admin', active: true }],
+  queryFn: () => fetchUsers({ role: 'admin', active: true }),
+});
+
+// Иерархия ключей
+useQuery({ queryKey: ['users'], ... });                    // все users
+useQuery({ queryKey: ['users', 1], ... });                 // user с id 1
+useQuery({ queryKey: ['users', 1, 'posts'], ... });        // posts user'а 1
+```
+
+### useMutation - изменение данных
+
+```typescript
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+interface CreateUserData {
+  name: string;
+  email: string;
+}
+
+const createUser = async (data: CreateUserData): Promise<User> => {
   const response = await fetch('/api/users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to create user');
+  return response.json();
+};
+
+function CreateUserForm() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: createUser,
+    onSuccess: (newUser) => {
+      // Инвалидировать кэш users - вызовет refetch
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+
+      // Или обновить кэш напрямую
+      queryClient.setQueryData<User[]>(['users'], (old) => {
+        return old ? [...old, newUser] : [newUser];
+      });
+    },
+    onError: (error) => {
+      console.error('Error creating user:', error);
+    },
   });
 
-  if (response.status === 422) {
-    const problem: ApiProblemDetails = await response.json();
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    mutation.mutate({
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+    });
+  };
 
-    // Показываем ошибки под полями формы
-    problem.errors?.forEach(error => {
-      showFieldError(error.field, error.message);
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="name" placeholder="Name" required />
+      <input name="email" type="email" placeholder="Email" required />
+      <button type="submit" disabled={mutation.isPending}>
+        {mutation.isPending ? 'Creating...' : 'Create User'}
+      </button>
+      {mutation.isError && (
+        <div style={{ color: 'red' }}>
+          Error: {mutation.error.message}
+        </div>
+      )}
+      {mutation.isSuccess && (
+        <div style={{ color: 'green' }}>User created!</div>
+      )}
+    </form>
+  );
+}
+```
+
+### Оптимистичные обновления
+
+```typescript
+const mutation = useMutation({
+  mutationFn: updateUser,
+  onMutate: async (newUser) => {
+    // Отменить текущие refetch'и
+    await queryClient.cancelQueries({ queryKey: ['users'] });
+
+    // Snapshot предыдущего значения
+    const previousUsers = queryClient.getQueryData<User[]>(['users']);
+
+    // Оптимистично обновить
+    queryClient.setQueryData<User[]>(['users'], (old) => {
+      return old?.map(user =>
+        user.id === newUser.id ? { ...user, ...newUser } : user
+      );
     });
 
-    return;
-  }
-
-  if (!response.ok) {
-    throw new Error(`API Error: ${response.status}`);
-  }
-
-  const user = await response.json();
-  console.log('User created:', user);
-}
-```
-
----
-
-## 6. Authentication & Authorization
-
-### 6.1. AAA
-
-- **Authentication** - "Кто ты?" (проверка личности)
-- **Authorization** - "Что можно?" (проверка прав)
-- **Accounting** - "Что делал?" (логирование)
-
-```typescript
-// 1. Authentication
-const user = await authenticateUser(email, password);
-// Result: { id: 123, email: 'john@example.com', roles: ['user'] }
-
-// 2. Authorization
-if (!user.roles.includes('admin')) {
-  throw new Error('Forbidden: Admin access required');
-}
-
-// 3. Accounting
-await db.auditLog.create({
-  userId: user.id,
-  action: 'delete_user',
-  resource: '/api/users/456',
-  timestamp: new Date()
-});
-```
-
-### 6.2. JWT (JSON Web Token)
-
-**Структура:** `header.payload.signature`
-
-```typescript
-import jwt from 'jsonwebtoken';
-
-// Генерация токена
-const token = jwt.sign(
-  {
-    userId: user.id,
-    email: user.email,
-    roles: user.roles
+    // Вернуть context для rollback
+    return { previousUsers };
   },
-  process.env.JWT_SECRET,
-  {
-    expiresIn: '1h'
-  }
-);
-
-// Проверка токена
-const decoded = jwt.verify(token, process.env.JWT_SECRET);
-// → { userId: 123, email: '...', roles: [...], exp: 1234567890 }
-
-// ⚠️ ВАЖНО: Payload можно декодировать БЕЗ секрета!
-const payload = JSON.parse(atob(token.split('.')[1]));
-console.log(payload); // Виден всем!
-
-// Поэтому НЕ храните пароли или секретные данные в JWT
+  onError: (err, newUser, context) => {
+    // Rollback при ошибке
+    queryClient.setQueryData(['users'], context?.previousUsers);
+  },
+  onSettled: () => {
+    // Всегда refetch после завершения
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+  },
+});
 ```
 
-**Использование на клиенте:**
+### Интеграция с Error Boundaries
 
 ```typescript
-// Хранение токена
-localStorage.setItem('token', token);
+import { QueryErrorResetBoundary } from '@tanstack/react-query';
+import { ErrorBoundary } from 'react-error-boundary';
 
-// Отправка с каждым запросом
-const response = await fetch('/api/profile', {
-  headers: {
-    'Authorization': `Bearer ${localStorage.getItem('token')}`
-  }
-});
-
-// Обработка истечения токена
-if (response.status === 401) {
-  // Токен истёк или невалиден
-  localStorage.removeItem('token');
-  window.location.href = '/login';
+function App() {
+  return (
+    <QueryErrorResetBoundary>
+      {({ reset }) => (
+        <ErrorBoundary
+          onReset={reset}
+          fallbackRender={({ error, resetErrorBoundary }) => (
+            <div>
+              <h2>Something went wrong:</h2>
+              <pre>{error.message}</pre>
+              <button onClick={resetErrorBoundary}>Try again</button>
+            </div>
+          )}
+        >
+          <YourApp />
+        </ErrorBoundary>
+      )}
+    </QueryErrorResetBoundary>
+  );
 }
 ```
 
-### 6.3. Refresh Tokens
+### Best Practices
 
-Решение проблемы коротко живущих токенов.
+1. **Хорошие queryKey**
+   ```typescript
+   // ❌ Плохо
+   useQuery({ queryKey: ['data'], ... });
 
-**Концепция:**
-- Access token: короткий (15 мин) - для обычных запросов
-- Refresh token: длинный (7 дней) - для получения нового access token
+   // ✅ Хорошо
+   useQuery({ queryKey: ['users', { status: 'active' }], ... });
+   ```
 
-**Реализация:**
+2. **Централизованные query functions**
+   ```typescript
+   // api/users.ts
+   export const usersApi = {
+     getAll: () => fetch('/api/users').then(r => r.json()),
+     getOne: (id: number) => fetch(`/api/users/${id}`).then(r => r.json()),
+     create: (data: CreateUserData) =>
+       fetch('/api/users', {
+         method: 'POST',
+         body: JSON.stringify(data),
+       }).then(r => r.json()),
+   };
+
+   // components/UserList.tsx
+   const { data } = useQuery({
+     queryKey: ['users'],
+     queryFn: usersApi.getAll,
+   });
+   ```
+
+3. **Правильные staleTime и cacheTime**
+   ```typescript
+   // Данные редко меняются
+   useQuery({
+     queryKey: ['config'],
+     queryFn: fetchConfig,
+     staleTime: Infinity, // никогда не stale
+   });
+
+   // Данные часто меняются
+   useQuery({
+     queryKey: ['stock-price'],
+     queryFn: fetchStockPrice,
+     staleTime: 0, // всегда stale
+     refetchInterval: 5000, // refetch каждые 5 сек
+   });
+   ```
+
+4. **Обработка loading и error states**
+   ```typescript
+   const { data, isLoading, isError, error } = useQuery({
+     queryKey: ['users'],
+     queryFn: fetchUsers,
+   });
+
+   if (isLoading) return <Spinner />;
+   if (isError) return <ErrorMessage error={error} />;
+   if (!data) return <EmptyState />;
+
+   return <UserList users={data} />;
+   ```
+
+---
+
+## OpenAPI и кодогенерация {#openapi}
+
+### Проблема ручной типизации API
+
+Когда вы работаете с backend API, возникает проблема синхронизации TypeScript типов с реальной структурой данных:
+
+**Проблемы:**
+- Backend добавляет/удаляет поля — TypeScript не знает об этом
+- Переименование полей приводит к runtime ошибкам
+- Дублирование кода: типы пишутся и на backend, и на frontend
+- Человеческий фактор при копировании типов
+
+**Пример проблемы:**
 
 ```typescript
-// Login: выдаём оба токена
-app.post('/api/auth/login', async (req, res) => {
-  const user = await authenticateUser(req.body.email, req.body.password);
+// Backend возвращает
+{
+  "id": 1,
+  "name": "John",
+  "email": "john@example.com",
+  "role": "admin" // новое поле!
+}
 
-  const accessToken = jwt.sign(
-    { userId: user.id },
-    ACCESS_TOKEN_SECRET,
-    { expiresIn: '15m' }
-  );
+// Frontend типы (устарели!)
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  // role отсутствует!
+}
 
-  const refreshToken = jwt.sign(
-    { userId: user.id },
-    REFRESH_TOKEN_SECRET,
-    { expiresIn: '7d' }
-  );
-
-  // Сохраняем refresh token в БД
-  await db.refreshTokens.create({
-    userId: user.id,
-    token: refreshToken,
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-  });
-
-  res.json({ accessToken, refreshToken, user });
-});
-
-// Refresh: получаем новый access token
-app.post('/api/auth/refresh', async (req, res) => {
-  const { refreshToken } = req.body;
-
-  // Verify refresh token
-  let decoded;
-  try {
-    decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
-  } catch (error) {
-    return res.status(401).json({ error: 'Invalid refresh token' });
-  }
-
-  // Check not revoked
-  const exists = await db.refreshTokens.findOne({
-    userId: decoded.userId,
-    token: refreshToken
-  });
-
-  if (!exists) {
-    return res.status(401).json({ error: 'Refresh token revoked' });
-  }
-
-  // Generate new access token
-  const newAccessToken = jwt.sign(
-    { userId: decoded.userId },
-    ACCESS_TOKEN_SECRET,
-    { expiresIn: '15m' }
-  );
-
-  res.json({ accessToken: newAccessToken });
-});
-
-// Logout: revoke refresh token
-app.post('/api/auth/logout', async (req, res) => {
-  const { refreshToken } = req.body;
-  await db.refreshTokens.delete({ token: refreshToken });
-  res.json({ success: true });
-});
+// TypeScript не ловит ошибку
+function displayUserRole(user: User) {
+  return user.role; // undefined в runtime!
+}
 ```
 
-**Клиент с автоматическим refresh:**
+### OpenAPI/Swagger стандарт
 
+**OpenAPI** — это стандарт описания REST API в формате JSON или YAML.
+
+**Основные концепции:**
+- **Paths** — описание эндпоинтов (GET, POST, PUT, DELETE)
+- **Schemas** — описание моделей данных
+- **Responses** — описание ответов API
+- **Parameters** — query, path, header параметры
+
+**Пример OpenAPI схемы:**
+
+```yaml
+openapi: 3.0.0
+info:
+  title: User API
+  version: 1.0.0
+
+paths:
+  /api/users:
+    get:
+      summary: Получить всех пользователей
+      responses:
+        '200':
+          description: Список пользователей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+    post:
+      summary: Создать пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserDto'
+      responses:
+        '201':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /api/users/{id}:
+    get:
+      summary: Получить пользователя по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Данные пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - id
+        - name
+        - email
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        role:
+          type: string
+          enum: [admin, user, moderator]
+          example: "user"
+
+    CreateUserDto:
+      type: object
+      required:
+        - name
+        - email
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, user, moderator]
+```
+
+**Как создавать OpenAPI схемы:**
+
+1. **Вручную** в редакторе (Swagger Editor, Stoplight Studio)
+2. **Автоматически** из backend кода:
+   - NestJS: `@nestjs/swagger`
+   - FastAPI: встроенная генерация
+   - Express: `swagger-jsdoc`, `tsoa`
+3. **Из Postman коллекций** (экспорт в OpenAPI)
+
+### Генерация TypeScript типов
+
+После создания OpenAPI схемы можно автоматически генерировать TypeScript код.
+
+#### Инструменты
+
+**1. openapi-typescript** — генерация чистых TypeScript типов
+
+```bash
+npm install -D openapi-typescript
+
+npx openapi-typescript ./openapi.yaml -o ./src/types/api.ts
+```
+
+Результат:
 ```typescript
-class ApiClient {
-  private accessToken: string | null = null;
-  private refreshToken: string | null = null;
-
-  async request(url: string, options: RequestInit = {}) {
-    // Add access token
-    const headers = {
-      ...options.headers,
-      'Authorization': `Bearer ${this.accessToken}`
+// src/types/api.ts (сгенерировано автоматически)
+export interface paths {
+  "/api/users": {
+    get: {
+      responses: {
+        200: {
+          content: {
+            "application/json": components["schemas"]["User"][];
+          };
+        };
+      };
     };
+    post: {
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["CreateUserDto"];
+        };
+      };
+      responses: {
+        201: {
+          content: {
+            "application/json": components["schemas"]["User"];
+          };
+        };
+      };
+    };
+  };
+}
 
-    let response = await fetch(url, { ...options, headers });
-
-    // If 401, try to refresh
-    if (response.status === 401 && this.refreshToken) {
-      const refreshed = await this.refreshAccessToken();
-
-      if (refreshed) {
-        // Retry request with new token
-        headers['Authorization'] = `Bearer ${this.accessToken}`;
-        response = await fetch(url, { ...options, headers });
-      } else {
-        // Refresh failed - redirect to login
-        window.location.href = '/login';
-      }
-    }
-
-    return response;
-  }
-
-  private async refreshAccessToken(): Promise<boolean> {
-    try {
-      const response = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: this.refreshToken })
-      });
-
-      if (response.ok) {
-        const { accessToken } = await response.json();
-        this.accessToken = accessToken;
-        return true;
-      }
-    } catch (error) {
-      console.error('Failed to refresh token', error);
-    }
-
-    return false;
-  }
+export interface components {
+  schemas: {
+    User: {
+      id: number;
+      name: string;
+      email: string;
+      role?: "admin" | "user" | "moderator";
+    };
+    CreateUserDto: {
+      name: string;
+      email: string;
+      role?: "admin" | "user" | "moderator";
+    };
+  };
 }
 ```
 
----
+**2. orval** — генерация React Query хуков + типы
 
-## 7. Практическое руководство: GitHub OAuth
+```bash
+npm install -D orval
 
-### 7.1. Регистрация GitHub OAuth App
-
-1. Перейдите на https://github.com/settings/developers
-2. "New OAuth App"
-3. Заполните:
-   - Application name: "My App"
-   - Homepage URL: `http://localhost:3000`
-   - Authorization callback URL: `http://localhost:3000/callback`
-4. Сохраните `Client ID` и сгенерируйте `Client Secret`
-
-⚠️ **Client Secret** храните на backend! Никогда не коммитьте в Git!
-
-### 7.2. Authorization Code Flow
-
-**Шаг 1: Redirect на GitHub**
-
-```typescript
-function loginWithGitHub() {
-  const params = new URLSearchParams({
-    client_id: 'YOUR_CLIENT_ID',
-    redirect_uri: 'http://localhost:3000/callback',
-    scope: 'user:email read:user',  // Запрашиваемые разрешения
-    state: generateRandomState()     // CSRF protection
-  });
-
-  // Сохраняем state в localStorage для проверки
-  localStorage.setItem('github_oauth_state', params.get('state')!);
-
-  window.location.href = `https://github.com/login/oauth/authorize?${params}`;
-}
-```
-
-**Шаг 2: Обработка callback**
-
-```typescript
-async function handleGitHubCallback() {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('code');
-  const state = params.get('state');
-
-  // Verify state (CSRF protection)
-  const savedState = localStorage.getItem('github_oauth_state');
-  if (state !== savedState) {
-    throw new Error('Invalid state parameter');
-  }
-
-  if (!code) {
-    throw new Error('No code received from GitHub');
-  }
-
-  // Exchange code for token (на ВАШЕМ backend!)
-  const response = await fetch('/api/auth/github', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code })
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to exchange code for token');
-  }
-
-  const { token, user } = await response.json();
-
-  // Сохраняем токен
-  localStorage.setItem('token', token);
-
-  // Redirect на главную
-  window.location.href = '/';
-}
-```
-
-**Шаг 3: Backend exchange**
-
-```typescript
-app.post('/api/auth/github', async (req, res) => {
-  const { code } = req.body;
-
-  // Exchange code for access token
-  const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
+# Конфигурация orval.config.ts
+export default {
+  api: {
+    input: './openapi.yaml',
+    output: {
+      mode: 'tags-split',
+      target: './src/api/generated',
+      client: 'react-query',
+      override: {
+        mutator: {
+          path: './src/api/client.ts',
+          name: 'customFetch',
+        },
+      },
     },
-    body: JSON.stringify({
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,  // Только на backend!
-      code
-    })
-  });
+  },
+};
 
-  const { access_token, error } = await tokenResponse.json();
-
-  if (error) {
-    return res.status(400).json({ error });
-  }
-
-  // Get user info
-  const userResponse = await fetch('https://api.github.com/user', {
-    headers: {
-      'Authorization': `Bearer ${access_token}`,
-      'Accept': 'application/json'
-    }
-  });
-
-  const githubUser = await userResponse.json();
-
-  // Create or update user in your database
-  const user = await db.users.upsert({
-    githubId: githubUser.id,
-    email: githubUser.email,
-    name: githubUser.name,
-    avatar: githubUser.avatar_url,
-    accessToken: access_token  // Храним для API запросов
-  });
-
-  // Generate YOUR JWT
-  const jwt = generateJWT(user);
-
-  res.json({ token: jwt, user });
-});
+npx orval
 ```
 
-**Шаг 4: Использование GitHub API**
+Результат:
+```typescript
+// src/api/generated/users.ts (сгенерировано автоматически)
+import { useQuery, useMutation, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query';
+import { customFetch } from '../client';
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  role?: 'admin' | 'user' | 'moderator';
+}
+
+export interface CreateUserDto {
+  name: string;
+  email: string;
+  role?: 'admin' | 'user' | 'moderator';
+}
+
+// Автоматически сгенерированный хук
+export const useGetUsers = <TData = User[]>(
+  options?: UseQueryOptions<User[], Error, TData>
+) => {
+  return useQuery<User[], Error, TData>(
+    ['users'],
+    () => customFetch<User[]>('/api/users'),
+    options
+  );
+};
+
+// Автоматически сгенерированный хук
+export const useCreateUser = <TData = User>(
+  options?: UseMutationOptions<User, Error, CreateUserDto>
+) => {
+  return useMutation<User, Error, CreateUserDto>(
+    (data) => customFetch<User>('/api/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+    options
+  );
+};
+
+// Автоматически сгенерированный хук
+export const useGetUser = <TData = User>(
+  id: number,
+  options?: UseQueryOptions<User, Error, TData>
+) => {
+  return useQuery<User, Error, TData>(
+    ['users', id],
+    () => customFetch<User>(`/api/users/${id}`),
+    options
+  );
+};
+```
+
+**3. @rtk-query/codegen** — для RTK Query
+
+```bash
+npm install -D @rtk-query/codegen-openapi
+
+npx @rtk-query/codegen-openapi openapi-config.ts
+```
+
+### Использование сгенерированного кода
+
+**С openapi-typescript:**
 
 ```typescript
-async function fetchGitHubRepos() {
-  const user = await db.users.findById(currentUserId);
+import { components } from './types/api';
 
-  const response = await fetch('https://api.github.com/user/repos', {
-    headers: {
-      'Authorization': `Bearer ${user.accessToken}`,
-      'Accept': 'application/vnd.github+json'
-    }
-  });
+type User = components['schemas']['User'];
 
-  // Обработка rate limiting
-  if (response.status === 429) {
-    const retryAfter = response.headers.get('Retry-After');
-    throw new Error(`Rate limit exceeded. Retry after ${retryAfter} seconds`);
-  }
+const fetchUsers = async (): Promise<User[]> => {
+  const res = await fetch('/api/users');
+  return res.json();
+};
 
-  // Pagination через Link header
-  const linkHeader = response.headers.get('Link');
-  // Link: <https://api.github.com/user/repos?page=2>; rel="next"
+function UserList() {
+  const [users, setUsers] = useState<User[]>([]);
 
-  const repos = await response.json();
-  return repos;
+  useEffect(() => {
+    fetchUsers().then(setUsers);
+  }, []);
+
+  return (
+    <div>
+      {users.map(user => (
+        <div key={user.id}>
+          {user.name} - {user.role}
+        </div>
+      ))}
+    </div>
+  );
 }
 ```
 
-### 7.3. Best Practices
+**С orval (React Query):**
 
-1. **Никогда не храните Client Secret на клиенте**
-2. **Используйте state parameter для CSRF protection**
-3. **Обрабатывайте rate limiting (HTTP 429)**
-4. **Храните GitHub access token в БД для API запросов**
-5. **Используйте свой JWT для аутентификации в вашем приложении**
-6. **Обрабатывайте истечение GitHub токенов**
+```typescript
+import { useGetUsers, useCreateUser, useGetUser } from './api/generated/users';
+
+function UserList() {
+  const { data, isLoading, error } = useGetUsers();
+  // data имеет тип User[] автоматически!
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <div>
+      {data?.map(user => (
+        <div key={user.id}>
+          {user.name} ({user.email}) - {user.role}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CreateUserForm() {
+  const mutation = useCreateUser();
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+
+    mutation.mutate({
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+      role: 'user', // TypeScript знает, что это enum!
+    }, {
+      onSuccess: () => {
+        alert('User created!');
+      },
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="name" required />
+      <input name="email" type="email" required />
+      <button disabled={mutation.isPending}>
+        {mutation.isPending ? 'Creating...' : 'Create'}
+      </button>
+      {mutation.isError && <div>Error: {mutation.error.message}</div>}
+    </form>
+  );
+}
+
+function UserDetail({ userId }: { userId: number }) {
+  const { data: user } = useGetUser(userId);
+
+  return (
+    <div>
+      <h1>{user?.name}</h1>
+      <p>{user?.email}</p>
+      <p>Role: {user?.role}</p>
+    </div>
+  );
+}
+```
+
+### Workflow разработки
+
+**Типичный workflow с OpenAPI кодогенерацией:**
+
+1. **Backend разработчик:**
+   - Создаёт/обновляет API
+   - Генерирует/обновляет OpenAPI схему
+   - Коммитит схему в репозиторий
+
+2. **Frontend разработчик:**
+   - Пуллит изменения
+   - Запускает кодогенерацию: `npm run codegen`
+   - Получает обновлённые типы и хуки
+   - Использует в компонентах
+
+3. **CI/CD pipeline:**
+   - Автоматически проверяет валидность OpenAPI схемы
+   - Запускает кодогенерацию
+   - Проверяет, что нет TypeScript ошибок
+
+**Автоматизация:**
+
+```json
+// package.json
+{
+  "scripts": {
+    "codegen": "orval",
+    "codegen:watch": "orval --watch",
+    "postinstall": "npm run codegen"
+  }
+}
+```
+
+**Pre-commit hook (Husky):**
+
+```bash
+#!/bin/sh
+# .husky/pre-commit
+
+# Регенерировать при изменении OpenAPI схемы
+if git diff --cached --name-only | grep -q "openapi.yaml"; then
+  npm run codegen
+  git add src/api/generated
+fi
+```
+
+### Преимущества кодогенерации
+
+| Преимущество | Описание |
+|--------------|----------|
+| **Type Safety** | Полная типизация API на уровне компиляции |
+| **Синхронизация** | Типы всегда соответствуют реальному API |
+| **DX (Developer Experience)** | Автодополнение для эндпоинтов и полей |
+| **Экономия времени** | Не нужно писать типы и хуки вручную |
+| **Документация** | OpenAPI = живая документация API |
+| **Тестирование** | Mock-серверы из OpenAPI (Prism, MSW) |
+
+### Альтернативные подходы
+
+Если OpenAPI не подходит:
+
+**1. tRPC** (для TypeScript fullstack)
+
+```typescript
+// backend (tRPC router)
+export const userRouter = t.router({
+  list: t.procedure.query(() => db.users.findMany()),
+  create: t.procedure
+    .input(z.object({ name: z.string(), email: z.string() }))
+    .mutation(({ input }) => db.users.create(input)),
+});
+
+// frontend (типы автоматически!)
+const users = trpc.user.list.useQuery();
+const createUser = trpc.user.create.useMutation();
+```
+
+**2. GraphQL Code Generator**
+
+```bash
+npm install -D @graphql-codegen/cli
+
+npx graphql-codegen --config codegen.yml
+```
+
+**3. Zodios** (Zod + Axios)
+
+```typescript
+import { Zodios } from '@zodios/core';
+import { z } from 'zod';
+
+const userSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  email: z.string().email(),
+});
+
+const api = new Zodios('https://api.example.com', [
+  {
+    method: 'get',
+    path: '/users',
+    response: z.array(userSchema),
+  },
+]);
+
+const users = await api.get('/users'); // типизировано!
+```
 
 ---
 
-## Полезные ссылки
+## Best Practices {#best-practices}
 
-- [MDN: HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP)
-- [GitHub OAuth Documentation](https://docs.github.com/en/developers/apps/building-oauth-apps/authorizing-oauth-apps)
-- [JWT.io](https://jwt.io/)
-- [RFC 7807: Problem Details](https://tools.ietf.org/html/rfc7807)
-- [REST API Tutorial](https://restfulapi.net/)
+### 1. Паттерны
+
+**Когда использовать что:**
+- Custom Hooks → переиспользование stateful логики
+- Compound Components → гибкие составные UI компоненты
+- Render Props → разный UI с одной логикой (устаревает)
+- Context → глобальное состояние, избегание prop drilling
+
+**Не смешивайте всё подряд!** Выберите один паттерн для задачи.
+
+### 2. Error Boundaries
+
+- ✅ Размещайте на уровне layout, routes, widgets
+- ✅ Логируйте все ошибки (Sentry, LogRocket)
+- ✅ Показывайте понятный fallback UI
+- ❌ Не используйте для flow control
+
+### 3. Оптимизация
+
+- ✅ **Измеряйте сначала** — используйте React Profiler
+- ✅ **Оптимизируйте узкие места** — не всё подряд
+- ✅ **React.memo** для дорогих компонентов со стабильными props
+- ✅ **useMemo** для действительно дорогих вычислений
+- ✅ **useCallback** для функций в мемоизированных компонентах
+- ❌ **Не оптимизируйте преждевременно!**
+
+### 4. React Query
+
+- ✅ Используйте осмысленные queryKey
+- ✅ Централизуйте API функции
+- ✅ Настройте правильные staleTime и cacheTime
+- ✅ Обрабатывайте loading и error states
+- ✅ Используйте DevTools для отладки
+- ❌ Не храните UI state в React Query
+
+### 5. TypeScript
+
+```typescript
+// ✅ Хорошо - типизация всего
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+const { data } = useQuery<User[]>({
+  queryKey: ['users'],
+  queryFn: fetchUsers,
+});
+
+// ✅ Хорошо - generic компоненты
+const ErrorBoundary = <T extends Error>(...) => { ... };
+
+// ❌ Плохо - any
+const { data }: any = useQuery(...);
+```
+
+---
+
+## Заключение
+
+### Что изучили
+
+1. ✅ **Обзор паттернов** — Custom Hooks, Compound Components, Render Props, Context
+2. ✅ **Error Boundaries** — профессиональная обработка ошибок
+3. ✅ **Оптимизация** — memo, useMemo, useCallback, профилирование
+4. ✅ **React Query** — современный стандарт работы с API
+
+### Дальнейшее изучение
+
+- [React Query Documentation](https://tanstack.com/query/latest/docs/react/overview)
+- [React Error Boundaries](https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary)
+- [React Profiler API](https://react.dev/reference/react/Profiler)
+- [React Performance](https://react.dev/learn/render-and-commit)
+
+### Практика
+
+Лучший способ освоить — **практиковаться**:
+1. Создайте приложение с React Query
+2. Добавьте Error Boundaries
+3. Профилируйте и оптимизируйте
+4. Используйте паттерны там, где они нужны
+
+Успехов в разработке! 🚀
