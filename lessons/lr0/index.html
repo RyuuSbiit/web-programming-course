@@ -3,26 +3,299 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Анна Светлова - Фотограф</title>
+    <title>Анна Светлова | Фотограф</title>
+    <meta
+        name="description"
+        content="Портфолио фотографа Анны Светловой: портретные, свадебные и природные съемки."
+    >
     <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Open+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Open+Sans:wght@400;500;600&display=swap"
+        rel="stylesheet"
+    >
 </head>
 <body>
-    <!-- Header & Navigation -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <a class="brand" href="#hero">Анна Светлова</a>
+            <nav class="site-nav" aria-label="Основная навигация">
+                <a href="#about">Обо мне</a>
+                <a href="#gallery">Галерея</a>
+                <a href="#contact">Контакты</a>
+            </nav>
+        </div>
+    </header>
 
     <main>
-        <!-- Hero Section -->
+        <section class="hero" id="hero">
+            <div class="container hero-grid">
+                <div class="hero-copy">
+                    <p class="eyebrow">Фотограф в Барнауле и по всей России</p>
+                    <h1>Истории, которые хочется пересматривать</h1>
+                    <p class="hero-text">
+                        Снимаю живые портреты, камерные свадьбы и пейзажи с мягким
+                        естественным светом и вниманием к деталям.
+                    </p>
+                    <div class="hero-actions">
+                        <a class="button button-primary" href="#gallery">Смотреть работы</a>
+                        <a class="button button-secondary" href="#contact">Записаться на съемку</a>
+                    </div>
+                </div>
 
-        <!-- About Section -->
+                <div class="hero-card">
+                    <img
+                        src="images/portrait_1.jpg"
+                        alt="Портретная фотография Анны Светловой"
+                    >
+                    <div class="hero-badge">
+                        <strong>120+</strong>
+                        <span>съемок за последние 3 года</span>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-        <!-- Gallery Section -->
+        <section class="about section" id="about">
+            <div class="container about-grid">
+                <div class="about-media">
+                    <img src="images/about.jpeg" alt="Анна Светлова с камерой">
+                </div>
 
-        <!-- Contact Section -->
+                <div class="about-copy">
+                    <p class="section-label">Обо мне</p>
+                    <h2>Фотография для меня начинается с доверия</h2>
+                    <p>
+                        Я создаю кадры, в которых важны не только композиция и свет,
+                        но и ощущение момента. Перед съемкой мы обсуждаем настроение,
+                        локации, образы и итоговую подачу, чтобы фотографии были
+                        по-настоящему вашими.
+                    </p>
+                    <p>
+                        Работаю в трех направлениях: портреты, свадьбы и природа.
+                        Такой опыт помогает находить красоту и в динамичных событиях,
+                        и в тихих, спокойных сценах.
+                    </p>
+
+                    <div class="stats-grid" aria-label="Ключевые показатели">
+                        <article class="stat-card">
+                            <strong>6 лет</strong>
+                            <span>опыта в коммерческой фотографии</span>
+                        </article>
+                        <article class="stat-card">
+                            <strong>48 часов</strong>
+                            <span>первый анонс после съемки</span>
+                        </article>
+                        <article class="stat-card">
+                            <strong>3 формата</strong>
+                            <span>портреты, свадьбы, природа</span>
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="gallery section" id="gallery">
+            <div class="container">
+                <div class="section-heading">
+                    <div>
+                        <p class="section-label">Портфолио</p>
+                        <h2>Избранные серии</h2>
+                    </div>
+
+                    <div class="filter-bar" role="toolbar" aria-label="Фильтр галереи">
+                        <button class="filter-button is-active" type="button" data-filter="all">
+                            Все
+                        </button>
+                        <button class="filter-button" type="button" data-filter="portrait">
+                            Портреты
+                        </button>
+                        <button class="filter-button" type="button" data-filter="wedding">
+                            Свадьбы
+                        </button>
+                        <button class="filter-button" type="button" data-filter="nature">
+                            Природа
+                        </button>
+                    </div>
+                </div>
+
+                <div class="gallery-grid">
+                    <article class="gallery-card" data-category="portrait">
+                        <button
+                            class="gallery-trigger"
+                            type="button"
+                            data-image="images/portrait_1.jpg"
+                            data-title="Портретная серия «Теплый свет»"
+                            data-description="Нежный портрет с акцентом на естественную пластику и спокойные тона."
+                        >
+                            <img src="images/portrait_1.jpg" alt="Портрет девушки в теплом свете">
+                        </button>
+                        <div class="gallery-meta">
+                            <span>Портрет</span>
+                            <h3>Теплый свет</h3>
+                        </div>
+                    </article>
+
+                    <article class="gallery-card" data-category="portrait">
+                        <button
+                            class="gallery-trigger"
+                            type="button"
+                            data-image="images/portrait_2.jpg"
+                            data-title="Портретная серия «Тихий вечер»"
+                            data-description="Камерная съемка с мягкой цветокоррекцией и акцентом на настроение."
+                        >
+                            <img src="images/portrait_2.jpg" alt="Портретная съемка на закате">
+                        </button>
+                        <div class="gallery-meta">
+                            <span>Портрет</span>
+                            <h3>Тихий вечер</h3>
+                        </div>
+                    </article>
+
+                    <article class="gallery-card" data-category="wedding">
+                        <button
+                            class="gallery-trigger"
+                            type="button"
+                            data-image="images/wedding_1.jpg"
+                            data-title="Свадебная серия «Клятвы у воды»"
+                            data-description="История о спокойной церемонии и деталях, которые делают день личным."
+                        >
+                            <img src="images/wedding_1.jpg" alt="Свадебная съемка у воды">
+                        </button>
+                        <div class="gallery-meta">
+                            <span>Свадьба</span>
+                            <h3>Клятвы у воды</h3>
+                        </div>
+                    </article>
+
+                    <article class="gallery-card" data-category="wedding">
+                        <button
+                            class="gallery-trigger"
+                            type="button"
+                            data-image="images/wedding_2.jpg"
+                            data-title="Свадебная серия «Первый танец»"
+                            data-description="Светлая репортажная съемка для тех, кто ценит искренние эмоции."
+                        >
+                            <img src="images/wedding_2.jpg" alt="Пара на свадебной фотосессии">
+                        </button>
+                        <div class="gallery-meta">
+                            <span>Свадьба</span>
+                            <h3>Первый танец</h3>
+                        </div>
+                    </article>
+
+                    <article class="gallery-card" data-category="nature">
+                        <button
+                            class="gallery-trigger"
+                            type="button"
+                            data-image="images/nature_1.jpg"
+                            data-title="Природа «Линия горизонта»"
+                            data-description="Минималистичный пейзаж с акцентом на ритм света и пространства."
+                        >
+                            <img src="images/nature_1.jpg" alt="Пейзаж с линией горизонта">
+                        </button>
+                        <div class="gallery-meta">
+                            <span>Природа</span>
+                            <h3>Линия горизонта</h3>
+                        </div>
+                    </article>
+
+                    <article class="gallery-card" data-category="nature">
+                        <button
+                            class="gallery-trigger"
+                            type="button"
+                            data-image="images/nature_2.jpg"
+                            data-title="Природа «После дождя»"
+                            data-description="Спокойный пейзаж, где атмосфера и текстуры работают на настроение."
+                        >
+                            <img src="images/nature_2.jpg" alt="Природный пейзаж после дождя">
+                        </button>
+                        <div class="gallery-meta">
+                            <span>Природа</span>
+                            <h3>После дождя</h3>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="contact section" id="contact">
+            <div class="container contact-grid">
+                <div class="contact-copy">
+                    <p class="section-label">Контакты</p>
+                    <h2>Обсудим вашу съемку</h2>
+                    <p>
+                        Напишите, какой формат вам нужен, желаемую дату и атмосферу
+                        серии. Я отвечу с идеями по локации, таймингу и стоимости.
+                    </p>
+
+                    <ul class="contact-list">
+                        <li><strong>Телефон:</strong> <a href="tel:+79001234567">+7 (900) 123-45-67</a></li>
+                        <li><strong>Email:</strong> <a href="mailto:anna.svetlova.photo@mail.ru">anna.svetlova.photo@mail.ru</a></li>
+                        <li><strong>Telegram:</strong> <a href="https://t.me/annasvetlova_photo" target="_blank" rel="noreferrer">@annasvetlova_photo</a></li>
+                    </ul>
+                </div>
+
+                <form class="contact-form" id="feedback-form" novalidate>
+                    <label class="field">
+                        <span>Ваше имя</span>
+                        <input id="name" name="name" type="text" placeholder="Например, Мария" required>
+                    </label>
+
+                    <label class="field">
+                        <span>Email</span>
+                        <input id="email" name="email" type="email" placeholder="name@example.com" required>
+                    </label>
+
+                    <label class="field">
+                        <span>Тип съемки</span>
+                        <select id="service" name="service" required>
+                            <option value="">Выберите формат</option>
+                            <option value="portrait">Портретная съемка</option>
+                            <option value="wedding">Свадебная съемка</option>
+                            <option value="nature">Природная серия</option>
+                        </select>
+                    </label>
+
+                    <label class="field">
+                        <span>Сообщение</span>
+                        <textarea
+                            id="message"
+                            name="message"
+                            rows="5"
+                            placeholder="Расскажите про дату, настроение и пожелания"
+                            required
+                        ></textarea>
+                    </label>
+
+                    <button class="button button-primary form-submit" type="submit">
+                        Отправить заявку
+                    </button>
+                    <p class="form-status" id="form-status" aria-live="polite"></p>
+                </form>
+            </div>
+        </section>
     </main>
 
-    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <p>Анна Светлова, фотограф.</p>
+            <a href="#hero">Наверх</a>
+        </div>
+    </footer>
 
-    <!-- Modal for enlarged images -->
+    <div class="modal" id="gallery-modal" aria-hidden="true" role="dialog" aria-labelledby="modal-title">
+        <div class="modal-backdrop" data-close-modal></div>
+        <div class="modal-content">
+            <button class="modal-close" type="button" aria-label="Закрыть" data-close-modal>
+                ×
+            </button>
+            <img id="modal-image" src="" alt="">
+            <div class="modal-copy">
+                <h3 id="modal-title"></h3>
+                <p id="modal-description"></p>
+            </div>
+        </div>
+    </div>
 
     <script src="js/script.js"></script>
 </body>

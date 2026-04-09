@@ -1,6 +1,5 @@
 import { makeAutoObservable } from 'mobx';
 import { Question, Answer } from '../types/quiz';
-import { mockQuestions } from '../data/questions';
 import { QuestionPreview } from '../../generated/api/quizBattleAPI.schemas';
 
 /**

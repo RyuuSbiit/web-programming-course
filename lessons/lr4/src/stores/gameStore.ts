@@ -1,6 +1,5 @@
 import { makeAutoObservable } from 'mobx';
-import { Question, Answer } from '../types/quiz';
-import { mockQuestions } from '../data/questions';
+import { Question } from '../types/quiz';
 
 /**
  * GameStore - MobX Store для управления игровой логикой

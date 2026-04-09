@@ -9,7 +9,7 @@
  * 3. Создайте custom hooks для переиспользования
  */
 
-import React, {
+import {
   createContext,
   useContext,
   useState,
@@ -134,7 +134,7 @@ Card.Footer = CardFooter;
 
 // TODO: Создайте custom hook useCounter
 function useCounter(initialValue = 0) {
-  const [count, setCount] = useState(initialValue);
+  const [count] = useState(initialValue);
 
   const increment = useCallback(() => {
     // TODO: реализуйте увеличение
@@ -153,7 +153,7 @@ function useCounter(initialValue = 0) {
 
 // TODO: Создайте custom hook useToggle
 function useToggle(initialValue = false) {
-  const [value, setValue] = useState(initialValue);
+  const [value] = useState(initialValue);
 
   const toggle = useCallback(() => {
     // TODO: реализуйте переключение
@@ -167,7 +167,7 @@ function useToggle(initialValue = false) {
 
 // TODO: Создайте демо компонент с использованием всех паттернов
 const Demo = () => {
-  const { user, login, logout, isLoggedIn } = useUser();
+  const { login, logout, isLoggedIn } = useUser();
   const { count, increment, decrement, reset } = useCounter(0);
   const [isVisible, toggleVisible] = useToggle(false);
 

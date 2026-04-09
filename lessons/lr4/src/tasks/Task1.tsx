@@ -17,7 +17,7 @@ import { Question } from '../types/quiz';
 
 const Task1 = () => {
   // Пример создания состояния с помощью useState
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentQuestionIndex] = useState(0);
 
   // TODO: Создайте состояние selectedAnswer для хранения выбранного ответа
   // Подсказка: используйте useState, тип number | null, начальное значение null
@@ -37,6 +37,7 @@ const Task1 = () => {
   const isFinished = false;
 
   const handleAnswerClick = (answerIndex: number) => {
+    console.log('Answer clicked:', answerIndex);
     // TODO: Реализуйте логику выбора ответа
     // 1. Проверьте, что ответ еще не был выбран (selectedAnswer === null)
     // 2. Сохраните выбранный ответ: setSelectedAnswer(answerIndex)

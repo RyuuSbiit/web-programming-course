@@ -29,6 +29,11 @@
       "@/types/*": ["src/types/*"]
     }
   },
-  "include": ["src"],
+  "include": [
+    "src/index.tsx",
+    "src/task1-2_basic.tsx",
+    "src/task3-4_basic.tsx",
+    "src/task4-advanced-patterns.tsx"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

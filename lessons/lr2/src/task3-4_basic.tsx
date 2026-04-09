@@ -1,188 +1,144 @@
-/**
- * ЗАДАНИЕ 3-4: Формы и Context
- *
- * Упрощенное задание, объединяющее формы и Context API
- *
- * Что будем изучать:
- * - Типизация форм и событий
- * - Context API
- * - Custom hooks
- */
+import React, { createContext, useContext, useState } from "react";
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+interface ContactFormData {
+  name: string;
+  email: string;
+  message: string;
+}
 
-// ============================================
-// ЧАСТЬ 1: Простая форма
-// ============================================
-
-// TODO 1.1: Создайте интерфейс FormData с полями:
-// - name: string
-// - email: string
-// - message: string
-
-// TODO 1.2: Типизируйте компонент SimpleForm
 function SimpleForm() {
-  // TODO 1.3: Создайте состояние formData с типом FormData
-  const [formData, setFormData] = useState(/* TODO */);
+  const [formData, setFormData] = useState<ContactFormData>({
+    name: "",
+    email: "",
+    message: "",
+  });
   const [submitted, setSubmitted] = useState(false);
 
-  // TODO 1.4: Типизируйте обработчик изменения
-  const handleChange = (e: /* TODO: тип события */) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = e.target;
-    // TODO: обновите formData
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // TODO 1.5: Типизируйте обработчик отправки
-  const handleSubmit = (e: /* TODO: тип события */) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    console.log('Отправлено:', formData);
-
-    // TODO: установите submitted в true чтобы показать сообщение об успехе
-
-    // TODO: через 3 секунды верните submitted в false
-    // Подсказка: используйте setTimeout(() => setSubmitted(false), 3000)
+    setSubmitted(true);
+    setTimeout(() => setSubmitted(false), 3000);
   };
 
   return (
-    <div className="simple-form">
+    <div className="card">
       <h2>Форма обратной связи</h2>
-
-      {submitted && (
-        <div className="success">Форма отправлена успешно!</div>
-      )}
-
+      {submitted && <div className="success-message">Форма отправлена</div>}
       <form onSubmit={handleSubmit}>
-        {/* TODO: Поле имени */}
         <div className="form-group">
-          <label htmlFor="name">Имя:</label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={/* TODO */}
-            onChange={handleChange}
-            required
-          />
+          <label htmlFor="name">Имя</label>
+          <input id="name" name="name" value={formData.name} onChange={handleChange} />
         </div>
-
-        {/* TODO: Поле email */}
         <div className="form-group">
-          <label htmlFor="email">Email:</label>
+          <label htmlFor="email">Email</label>
           <input
-            type="email"
             id="email"
             name="email"
-            value={/* TODO */}
+            type="email"
+            value={formData.email}
             onChange={handleChange}
-            required
           />
         </div>
-
-        {/* TODO: Поле сообщения */}
         <div className="form-group">
-          <label htmlFor="message">Сообщение:</label>
+          <label htmlFor="message">Сообщение</label>
           <textarea
             id="message"
             name="message"
-            value={/* TODO */}
+            value={formData.message}
             onChange={handleChange}
             rows={4}
-            required
           />
         </div>
-
         <button type="submit">Отправить</button>
       </form>
     </div>
   );
 }
 
-// ============================================
-// ЧАСТЬ 2: Context API
-// ============================================
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
 
-// TODO 2.1: Создайте интерфейс User с полями:
-// - id: number
-// - name: string
-// - email: string
+interface UserContextType {
+  user: User | null;
+  login: (user: User) => void;
+  logout: () => void;
+}
 
-// TODO 2.2: Создайте интерфейс UserContextType с полями:
-// - user: User | null
-// - login: (user: User) => void
-// - logout: () => void
+const UserContext = createContext<UserContextType | undefined>(undefined);
 
-// TODO 2.3: Создайте Context
-const UserContext = createContext</* TODO: тип */ | undefined>(undefined);
-
-// TODO 2.4: Типизируйте UserProvider
-function UserProvider({ children }: { children: ReactNode }) {
+function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  const login = (userData: User) => {
-    // TODO: реализуйте вход
-  };
-
-  const logout = () => {
-    // TODO: реализуйте выход
-  };
-
   return (
-    <UserContext.Provider value={{ user, login, logout }}>
+    <UserContext.Provider
+      value={{
+        user,
+        login: setUser,
+        logout: () => setUser(null),
+      }}
+    >
       {children}
     </UserContext.Provider>
   );
 }
 
-// TODO 2.5: Создайте custom hook useUser
-// Должен возвращать тип UserContextType
-// Должен проверять, что context не undefined и выбрасывать ошибку
-function useUser(): /* TODO: добавьте возвращаемый тип */ {
-  // TODO: получите context с помощью useContext
-  // TODO: если context undefined, выбросьте ошибку
-  // TODO: верните context
+function useUser() {
+  const context = useContext(UserContext);
+  if (!context) {
+    throw new Error("useUser must be used inside UserProvider");
+  }
+  return context;
 }
 
-// TODO 2.6: Создайте компонент UserStatus
-// Этот компонент показывает статус пользователя в header
 function UserStatus() {
-  // TODO: получите user и logout из useUser()
+  const { user, logout } = useUser();
 
   if (!user) {
     return <span>Не авторизован</span>;
   }
 
   return (
-    <div className="user-status">
+    <div className="flex gap-1 align-center">
       <span>Привет, {user.name}!</span>
       <button onClick={logout}>Выйти</button>
     </div>
   );
 }
 
-// TODO 2.7: Создайте компонент Profile
 function Profile() {
   const { user, login } = useUser();
 
-  const handleLogin = () => {
-    login({
-      id: 1,
-      name: 'Иван Иванов',
-      email: 'ivan@example.com'
-    });
-  };
-
   if (!user) {
     return (
-      <div className="profile">
+      <div className="card">
         <h2>Вы не авторизованы</h2>
-        <button onClick={handleLogin}>Войти</button>
+        <button
+          onClick={() =>
+            login({
+              id: 1,
+              name: "Иван Иванов",
+              email: "ivan@example.com",
+            })
+          }
+        >
+          Войти
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="profile">
+    <div className="card">
       <h2>Профиль</h2>
       <p>Имя: {user.name}</p>
       <p>Email: {user.email}</p>
@@ -191,50 +147,40 @@ function Profile() {
   );
 }
 
-// ============================================
-// Главный компонент
-// ============================================
-
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<'form' | 'profile'>('form');
+  const [activeTab, setActiveTab] = useState<"form" | "profile">("form");
 
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Приложение с формами и авторизацией</h1>
-        {/* TODO 2.8: Добавьте компонент UserStatus здесь */}
-        {/* <UserStatus /> */}
+        <h1>Формы и Context API</h1>
+        <UserStatus />
       </header>
-
-      <nav className="tabs">
+      <nav className="task-nav">
         <button
-          className={activeTab === 'form' ? 'active' : ''}
-          onClick={() => setActiveTab('form')}
+          className={activeTab === "form" ? "active" : ""}
+          onClick={() => setActiveTab("form")}
         >
           Форма
         </button>
         <button
-          className={activeTab === 'profile' ? 'active' : ''}
-          onClick={() => setActiveTab('profile')}
+          className={activeTab === "profile" ? "active" : ""}
+          onClick={() => setActiveTab("profile")}
         >
           Профиль
         </button>
       </nav>
-
-      <div className="content">
-        {activeTab === 'form' && <SimpleForm />}
-        {activeTab === 'profile' && <Profile />}
+      <div className="app-main">
+        {activeTab === "form" ? <SimpleForm /> : <Profile />}
       </div>
     </div>
   );
 }
 
-function App() {
+export default function TaskFormsAndContext() {
   return (
     <UserProvider>
       <AppContent />
     </UserProvider>
   );
 }
-
-export default App;
